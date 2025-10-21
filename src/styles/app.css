@@ -1,0 +1,144 @@
+/* General layout */
+.app-container {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  background-color: #f9fafb;
+  font-family: "Inter", sans-serif;
+  color: #111827;
+}
+
+/* Header */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 16px 32px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.app-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #62d398;
+  letter-spacing: -0.5px;
+}
+
+.app-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-user-email {
+  color: #4b5563;
+  font-size: 14px;
+}
+
+.logout-btn {
+  background-color: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.logout-btn:hover {
+  background-color: #b91c1c;
+}
+
+.app-nav {
+  display: flex;
+  justify-content: center;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 12px 0;
+  gap: 40px;
+}
+
+.nav-tab {
+  background: none;
+  border: none;
+  font-size: 15px;
+  color: #4b5563;
+  cursor: pointer;
+  position: relative;
+  font-weight: 500;
+  padding: 6px 0;
+  transition: color 0.2s ease;
+}
+
+.nav-tab:hover {
+  color: #62d398;
+}
+
+.nav-tab.active {
+  color: #555F9F;
+  font-weight: 600;
+}
+
+.nav-tab.active::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #555F9F;
+  border-radius: 2px;
+  margin: 0 auto;
+  width: 70%;
+}
+
+.app-content {
+  flex: 1;
+  background: linear-gradient(135deg, #eef2ff, #ffffff);
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 40px;
+  animation: fadeIn 0.3s ease;
+}
+
+header img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #ccc;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+@media (max-width: 768px) {
+  .app-header {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+
+  .app-nav {
+    gap: 20px;
+  }
+
+  .app-content {
+    padding: 20px;
+  }
+}

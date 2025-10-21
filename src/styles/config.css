@@ -1,0 +1,96 @@
+.config-container {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  font-family: "Inter", sans-serif;
+}
+
+.config-card {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  width: 600px;
+  padding: 40px;
+  text-align: left;
+  animation: fadeIn 0.4s ease;
+}
+
+.config-title {
+  text-align: center;
+  color: #1e40af;
+  font-weight: 700;
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.config-subtitle {
+  text-align: center;
+  color: #555;
+  font-size: 15px;
+  margin-bottom: 25px;
+}
+
+.config-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.config-label {
+  font-weight: 600;
+  color: #333;
+}
+
+.config-select,
+.config-file {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.config-select:focus,
+.config-file:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 4px rgba(37, 99, 235, 0.3);
+  outline: none;
+}
+
+.config-button {
+  margin-top: 10px;
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.config-button:hover {
+  background-color: #1e3a8a;
+}
+
+.config-status {
+  margin-top: 15px;
+  font-size: 14px;
+  text-align: center;
+  color: #111;
+  animation: fadeIn 0.3s ease;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
