@@ -6,7 +6,6 @@ export default function Auth({ onLogin }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Dynamically load Google script
     const script = document.createElement("script");
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;

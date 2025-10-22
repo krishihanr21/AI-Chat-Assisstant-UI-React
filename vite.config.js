@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
+      // '/query': 'https://ai-virtual-assistant-847069729509.us-central1.run.app',
       '/query': 'http://127.0.0.1:8000',
     },
   },

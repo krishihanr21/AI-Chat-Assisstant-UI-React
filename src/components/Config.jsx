@@ -24,7 +24,10 @@ export default function Config() {
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Upload failed");
+      }
       const data = await res.json();
 
       setStatus(`File uploaded successfully! (${data.public_url || "private file"})`);

@@ -29,7 +29,7 @@ export default function Training({ user }) {
     if (!question.trim()) return;
     setLoading(true);
     const res = await postQuery(question, user.email, "training-session");
-    setResponse(res.answer || "No response");
+    setResponse(res.result || "No response");
     setLoading(false);
   }
 
