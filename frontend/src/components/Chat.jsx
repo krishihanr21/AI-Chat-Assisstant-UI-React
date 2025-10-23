@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { postQuery } from "../api/api";
+import { postQuery, pollUpdates } from "../api/api";
 import "../styles/chat.css";
 import avatar from "../assets/ai-avatar.jpg";
 
@@ -39,81 +39,101 @@ export default function Chat({ user }) {
     }
   }, [user]);
 
-  // Simulate Pub/Sub receiving 6 streamed reasoning messages
-    const startStreamingUpdates = (questionId) => {
-      return new Promise((resolve) => {
-        setStreamingThoughts([]);
-        setIsStreaming(true);
-
-        const mockStream = [
-          { agent: "Query Planner", instruction: "Analyzing the user query structure.", answer: "Identified main intent as cost optimization." },
-          { agent: "Data Retriever", instruction: "Fetching license utilization data.", answer: "Retrieved 12 application usage records." },
-          { agent: "Analyzer", instruction: "Computing underutilization ratios.", answer: "Found 4 apps below 40% usage." },
-          { agent: "Finance Evaluator", instruction: "Calculating cost gaps.", answer: "Detected $2,300 potential savings." },
-          { agent: "Summarizer", instruction: "Drafting final response for user.", answer: "Formulated human-readable summary." },
-          { agent: "Reporting Agent", instruction: "Formatting structured response.", answer: "Output ready for presentation." },
-        ];
-
-        let index = 0;
-        const interval = setInterval(() => {
-          if (index < mockStream.length-1) {
-            setStreamingThoughts((prev) => [...prev, mockStream[index]]);
-            index++;
-          } else {
-            clearInterval(interval);
-            setIsStreaming(false);
-            resolve(mockStream);
-          }
-        }, 20000);
-      });
-    };
-
-
   async function handleSend() {
   if (!selected.trim()) return;
+
   const questionId = `abc-123`;
+  const session_id = `session-${user.name.split(" ")[0]}-${new Date().toISOString()}`;
+  const user_id = '26ce089b-d650-47c6-84c5-8f4af1bbe8cd'
   setPending(true);
   setMessages((prev) => [...prev, { role: "user", content: selected }]);
+  setIsStreaming(true);
+  setStreamingThoughts([]);
+
+const MAX_POLL_TIME = 30000;
+const POLL_INTERVAL_MS = 3000;
 
   try {
-    // Wait for both to finish in parallel
-    const [res, reasoningData] = await Promise.all([
-      postQuery(selected, "26ce089b-d650-47c6-84c5-8f4af1bbe8cd", "test-session"),
-      startStreamingUpdates(questionId),
-    ]);
+    const res = await postQuery(
+      selected,
+      user_id,
+      session_id,
+      questionId
+    );
+    console.log("Published:", res);
 
-    const fullText = res.result || "Here’s your summarized insight!";
-    const dummyTable = [
-      { Application: "Google Classroom", Licenses: 120, Used: 80, Savings: "$400" },
-      { Application: "Zoom Education", Licenses: 90, Used: 45, Savings: "$900" },
-    ];
+    const startTime = Date.now();
+    const pollInterval = setInterval(async () => {
+      if (Date.now() - startTime > MAX_POLL_TIME) {
+      console.warn("Polling timed out.");
+      clearInterval(pollInterval);
+      setPending(false);
+      setIsStreaming(false);
+      return;
+    }
+      try {
+        const { messages: updates } = await pollUpdates(user_id, session_id);
+        if (!updates || updates.length === 0) return;
 
-    setPending(false);
+        updates.forEach((msg) => {
+          if (msg.session_id !== session_id) return;
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        role: "assistant",
-        content: fullText,
-        tableData: dummyTable,
-        reasoning: reasoningData.filter(Boolean),
-        questionId,
-      },
-    ]);
+          const { agent, instruction, answer, isFinal, output } = msg;
 
-    setStreamingThoughts([]);
+          if (isFinal === "false") {
+            setStreamingThoughts((prev) => [
+              ...prev,
+              { agent, instruction, answer },
+            ]);
+          } else if (isFinal === "true") {
+            clearInterval(pollInterval);
+            setIsStreaming(false);
+            setPending(false);
+
+            let finalTable = [];
+            if (output && typeof output === "object") {
+              if (Array.isArray(output.tableData) && output.tableData.length > 0) {
+                finalTable = output.tableData;
+              }
+              else if (Array.isArray(output) && output.length > 0 && typeof output[0] === "object") {
+                finalTable = output;
+              }
+              else if (typeof output === "object" && !Array.isArray(output)) {
+                finalTable = [output];
+              }
+            }
+
+            if (!Array.isArray(finalTable)) finalTable = [];
+
+            setMessages((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: output?.text || "Here's the AI response!",
+                reasoning: [...streamingThoughts, { agent, instruction, answer }],
+                tableData: finalTable,
+                questionId,
+              },
+            ]);
+            setStreamingThoughts([]);
+          }
+        });
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    }, POLL_INTERVAL_MS);
   } catch (err) {
-    console.error(err);
+    console.error("Error publishing:", err);
     setPending(false);
+    setIsStreaming(false);
     setMessages((prev) => [
       ...prev,
-      { role: "assistant", content: "Error getting response." },
+      { role: "assistant", content: "Error publishing query." },
     ]);
   }
 
   setSelected("");
 }
-
 
   const toggleTable = (index) => {
     setExpandedMessage(expandedMessage === index ? null : index);
@@ -152,17 +172,13 @@ export default function Chat({ user }) {
               />
               <div className="bubble">
                 {m.role === "user" ? (
-                /* ---------- USER MESSAGE ---------- */
                 <>
                   <b>{user.name.split(" ")[0]}:</b> {m.content}
                 </>
               ) : (
-                /* ---------- ASSISTANT MESSAGE (safe conditional render) ---------- */
                 <>
-                  {/* Only show this after content exists */}
                   {m.content ? (
                     <>
-                      {/* 1) Thought Process (top) */}
                       <div className="reasoning-section">
                         <button
                           className="reasoning-toggle-btn"
@@ -186,12 +202,10 @@ export default function Chat({ user }) {
                         )}
                       </div>
 
-                      {/* 2) AI main output (middle) */}
                       <div className="assistant-output">
                         <b>AI:</b> {m.content}
                       </div>
 
-                      {/* 3) Table toggle + table (bottom) */}
                       <div className="table-toggle" style={{ marginTop: "8px" }}>
                         <button
                           className="view-table-btn"
