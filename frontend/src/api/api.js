@@ -1,7 +1,7 @@
-export const API_BASE_URL = "http://localhost:8000"; 
-
+export const API_BASE_URL = "http://localhost:8000";
 
 export async function postQuery(input, userId, sessionId, questionId) {
+  console.log("Publishing query...");
   const response = await fetch(`${API_BASE_URL}/publish`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -19,18 +19,13 @@ export async function postQuery(input, userId, sessionId, questionId) {
 export async function pollUpdates(userId, sessionId) {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/poll?user_id=${userId}&session_id=${sessionId}`,
-      {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      }
+      `${API_BASE_URL}/poll?user_id=${userId}&session_id=${sessionId}`
     );
     if (!response.ok) throw new Error(`Error: ${response.status}`);
     const data = await response.json();
-    return data; // return { messages: [...] }
+    return { messages: data.messages || [] };
   } catch (error) {
     console.error("Polling error:", error);
     return { messages: [] };
   }
 }
-

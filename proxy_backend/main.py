@@ -52,9 +52,8 @@ async def poll_messages(user_id: str = None, session_id: str = None):
     print(f"Pulled {len(response.received_messages)} messages")
     for msg in response.received_messages:
         data = json.loads(msg.message.data.decode("utf-8"))
-        print(f"   ↳ Raw Message: {data}")
-        if not user_id or data.get("session_id") == session_id:
-            messages.append(data)
+        print(f"Raw Message: {data}")
+        messages.append(data)
         ack_ids.append(msg.ack_id)
 
     if ack_ids:
