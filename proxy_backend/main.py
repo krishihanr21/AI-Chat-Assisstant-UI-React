@@ -58,8 +58,8 @@ def get_user_role(email: str = Query(...)):
             role = "admin"
         elif email in users:
             role = "user"
-        elif email not in admins & users:
-            print("You should get the access to view")
+        else:
+            raise HTTPException(status_code=403, detail="Unauthorized user")
 
         return {"email": email, "role": role}
     except Exception as e:

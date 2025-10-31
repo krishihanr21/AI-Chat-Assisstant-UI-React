@@ -31,18 +31,40 @@ export default function Auth({ onLogin }) {
     document.body.appendChild(script);
   }, []);
 
-  const handleCredentialResponse = (response) => {
+  const handleCredentialResponse = async (response) => {
     const userObject = parseJwt(response.credential);
+
     if (userObject && userObject.email.endsWith("@qoria.com")) {
-      onLogin({
-        email: userObject.email,
-        name: userObject.name,
-        picture: userObject.picture,
-      });
+      try {
+        const res = await fetch(`/api/user-role?email=${encodeURIComponent(userObject.email)}`);
+
+        if (res.status === 403) {
+          alert("You are not authorized to use this system.");
+          return;
+        }
+
+        if (!res.ok) {
+          alert("Error verifying your account. Please try again later.");
+          return;
+        }
+
+        const data = await res.json();
+
+        onLogin({
+          email: userObject.email,
+          name: userObject.name,
+          picture: userObject.picture,
+          role: data.role,
+        });
+      } catch (error) {
+        alert("Network error verifying access.");
+        console.error(error);
+      }
     } else {
       alert("Unauthorized domain");
     }
   };
+
 
   function parseJwt(token) {
     try {
@@ -54,13 +76,13 @@ export default function Auth({ onLogin }) {
 
   return (
     <div className="auth-container">
-        <img src={logo} alt="Qoria Logo" className="auth-logo" />
+      <img src={logo} alt="Qoria Logo" className="auth-logo" />
       <div className="auth-card">
         <h1 className="auth-title">AI Virtual Assistant</h1>
         <p className="auth-subtitle">
           Sign in with your <b>@qoria.com</b> account to continue
         </p>
-          <div id="googleSignInDiv" className="google-btn-container"></div>
+        <div id="googleSignInDiv" className="google-btn-container"></div>
 
       </div>
     </div>

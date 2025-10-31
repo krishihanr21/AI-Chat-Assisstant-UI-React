@@ -3,7 +3,7 @@ import Auth from "./components/Auth";
 import Chat from "./components/Chat";
 import Config from "./components/Config";
 import Training from "./components/Training";
-import "./styles/app.css"; 
+import "./styles/app.css";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -13,10 +13,24 @@ export default function App() {
   useEffect(() => {
     if (user) {
       fetch(`/api/user-role?email=${encodeURIComponent(user.email)}`)
-      .then((res) => res.json())
-      .then((data) => setRole(data.role));
+        .then((res) => {
+          if (res.status === 403) {
+            alert("You are not authorized to access this system.");
+            setUser(null);
+            return null;
+          }
+          return res.json();
+        })
+        .then((data) => {
+          if (data) setRole(data.role);
+        })
+        .catch(() => {
+          alert("Error verifying your access.");
+          setUser(null);
+        });
     }
   }, [user]);
+
 
 
   if (!user) return <Auth onLogin={setUser} />;
@@ -28,9 +42,10 @@ export default function App() {
       <header className="app-header">
         <h1 className="app-title">AI Virtual Assistant</h1>
         <div className="app-user">
-            <img src={user.picture} alt="profile" referrerPolicy="no-referrer"/>
+          <img src={user.picture} alt="profile" referrerPolicy="no-referrer" />
           <span className="app-user-email">{user.email}</span>
-          <button onClick={() => {setUser(null);
+          <button onClick={() => {
+            setUser(null);
             localStorage.removeItem("chat_messages");
             sessionStorage.clear();
             sessionStorage.removeItem(`training_session_${user.email}`);
@@ -55,16 +70,16 @@ export default function App() {
       <main className="app-content">
         {activeTab === "chat Assistant" && <Chat user={user} />}
         {isAdmin ? (
-        <>
-        {activeTab === "Agent configuration" && <Config />}
-        {activeTab === "Training Mode" && <Training user={user} />}
-        </>
+          <>
+            {activeTab === "Agent configuration" && <Config />}
+            {activeTab === "Training Mode" && <Training user={user} />}
+          </>
         ) : (
-        activeTab !== 'chat Assistant' && (
+          activeTab !== 'chat Assistant' && (
             <div className="p-6 text-center text-gray-600">
-            <p>You don’t have permission to access this section.</p>
+              <p>You don’t have permission to access this section.</p>
             </div>
-        )
+          )
         )}
       </main>
     </div>
