@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Auth from "./components/Auth";
 import Chat from "./components/Chat";
 import Config from "./components/Config";
@@ -7,11 +7,21 @@ import "./styles/app.css";
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [role, setRole] = useState(null);
   const [activeTab, setActiveTab] = useState("chat Assistant");
-  const ADMIN_EMAILS = ["krishihan.raviendran@qoria.com"];
+
+  useEffect(() => {
+    if (user) {
+      fetch(`/api/user-role?email=${encodeURIComponent(user.email)}`)
+      .then((res) => res.json())
+      .then((data) => setRole(data.role));
+    }
+  }, [user]);
 
 
   if (!user) return <Auth onLogin={setUser} />;
+
+  const isAdmin = role === "admin";
 
   return (
     <div className="app-container">
@@ -44,7 +54,7 @@ export default function App() {
 
       <main className="app-content">
         {activeTab === "chat Assistant" && <Chat user={user} />}
-        {ADMIN_EMAILS.includes(user.email) ? (
+        {isAdmin ? (
         <>
         {activeTab === "Agent configuration" && <Config />}
         {activeTab === "Training Mode" && <Training user={user} />}

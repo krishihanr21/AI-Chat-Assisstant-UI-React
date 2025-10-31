@@ -65,6 +65,7 @@ export default function Chat({ user }) {
     const questionId = `q-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const session_id = `session-test33`;
     const user_id = "26ce089b-d650-47c6-84c5-8f4af1bbe8cd";
+    const training_mode = false;
 
     setPending(true);
     setIsStreaming(true);
@@ -72,8 +73,10 @@ export default function Chat({ user }) {
     setMessages((prev) => [...prev, { role: "user", content: selected }]);
 
     try {
-      const res = await postQuery(selected, user_id, session_id, questionId);
+      const res = await postQuery(selected, user_id, session_id, questionId, training_mode);
       console.log("Published:", res);
+      console.log(postQuery);
+      
 
       // clear any previous polling before starting new one
       clearInterval(pollIntervalRef.current);
@@ -104,7 +107,7 @@ export default function Chat({ user }) {
     finalMessageHandled.current = false;
 
     const POLL_INTERVAL_MS = 3000;
-    const MAX_POLL_TIME = 240000;
+    const MAX_POLL_TIME = 600000;
     const startTime = Date.now();
 
     async function pollOnce() {
@@ -117,7 +120,7 @@ export default function Chat({ user }) {
       }
 
       try {
-        const { messages: updates } = await pollUpdates(user_id, session_id);
+        const { messages: updates } = await pollUpdates(user_id, session_id, questionId);
         if (updates && updates.length > 0) {
           for (const msg of updates) {
             if (msg.Session !== session_id) continue;
@@ -125,16 +128,18 @@ export default function Chat({ user }) {
             const agent = msg.Agent;
             const instruction = msg.Instructions;
             const answer = msg.FinalAnswer || msg.Answer;
-            const output = msg.Output;
+            const output = msg.BigQueryJobId;
             const isFinal = String(msg.is_final).toLowerCase() === "true";
 
             if (!isFinal) {
               setStreamingThoughts((prev) => [...prev, { agent, instruction, answer }]);
             } else if (!finalMessageHandled.current) {
               finalMessageHandled.current = true;
-              console.log("🏁 Final message received — stopping polling.");
+              console.log("Final message received — stopping polling.");
 
               let finalTable = [];
+              let bigqueryJobId = msg.BigQueryJobId;
+
               if (output && typeof output === "object") {
                 if (Array.isArray(output.tableData) && output.tableData.length > 0)
                   finalTable = output.tableData;
@@ -143,6 +148,7 @@ export default function Chat({ user }) {
                 else if (typeof output === "object" && !Array.isArray(output))
                   finalTable = [output];
               }
+
 
               setStreamingThoughts((prevThoughts) => {
                 const reasoningSnapshot = [...prevThoughts, { agent, instruction, answer }];
@@ -166,15 +172,13 @@ export default function Chat({ user }) {
                       content: answer || "Here's the AI response!",
                       reasoningSnapshot,
                       tableData: finalTable,
+                      bigqueryJobId,
                       questionId,
                     },
                   ];
                 });
-
                 return [];
               });
-
-
               isPollingActive.current = false;
               setPending(false);
               setIsStreaming(false);
@@ -192,10 +196,8 @@ export default function Chat({ user }) {
       }
     }
 
-    pollOnce(); // start first poll
+    pollOnce();
   }
-
-
 
   // UI HELPERS
   const toggleTable = (index) => {
@@ -206,139 +208,68 @@ export default function Chat({ user }) {
     setReasoningExpanded(reasoningExpanded === index ? null : index);
   };
 
-  const fetchTableData = async (questionId) => {
+  const fetchTableData = async (questionId, bigqueryJobId) => {
+    if (!bigqueryJobId) {
+      console.warn("No BigQuery Job ID found for this message.");
+      return;
+    }
+
     try {
+      const API_BASE_URL = "";
+      const res = await fetch(`${API_BASE_URL}/api/bigquery/${bigqueryJobId}`);
+      const data = await res.json();
+
+      if (res.ok && Array.isArray(data.rows)) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.questionId === questionId ? { ...m, tableData: data.rows } : m
+          )
+        );
+      } else {
+        console.error("Error fetching BigQuery data:", data.detail || data);
+      }
     } catch (error) {
       console.error("Error fetching table data:", error);
     }
   };
 
-  function formatAgentResponse(agent, instruction, answer) {
-    if (!answer) return "";
-
-    const clean = (text) =>
-      text
+  const clean = (text = "") =>
+      String(text)
         .replace(/\\n/g, "\n")
         .replace(/\\"/g, '"')
         .replace(/\\'/g, "'")
         .trim();
 
-    const answer_clean = clean(answer);
-    const ins_clean = clean(instruction);
-
-    // 🔹 Handle **bold** cleanly even across newlines
-    const renderBoldText = (text) => {
-      const parts = text.split(/(\*\*.*?\*\*)/g);
-      return parts.map((part, i) => {
-        if (part.startsWith("**") && part.endsWith("**")) {
-          return (
-            <strong key={i} style={{ fontWeight: 600 }}>
-              {part.slice(2, -2)}
-            </strong>
-          );
-        }
-        return part;
-      });
-    };
-
-    const formatLines = (text) => {
-    // Normalize spacing first
-    const rawLines = text
-      .replace(/\n{3,}/g, "\n\n")
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-
-    const mergedLines = [];
-    for (let i = 0; i < rawLines.length; i++) {
-      const current = rawLines[i];
-      const next = rawLines[i + 1];
-
-      // 🔹 Fix for "1.\nAnalyze ..." or "*\nText"
-      if (
-        current.match(/^(\d+\.)$/) &&
-        next &&
-        !next.match(/^(\d+\.)|^[-•]/)
-      ) {
-        mergedLines.push(current + " " + next);
-        i++; // skip next line since merged
-      } else if (
-        current.match(/^[-•]$/) &&
-        next &&
-        !next.match(/^(\d+\.)|^[-•]/)
-      ) {
-        mergedLines.push(current + " " + next);
-        i++;
-      } else {
-        mergedLines.push(current);
-      }
-    }
-
-    // Render properly
-    return mergedLines.map((line, idx) => {
-      if (line.match(/^{.*}$/) || (line.includes("{") && line.includes("}"))) {
-        return (
-          <pre
-            key={idx}
-            style={{
-              background: "#f5f5f5",
-              padding: "6px 10px",
-              borderRadius: "8px",
-              whiteSpace: "pre-wrap",
-              fontFamily: "monospace",
-              fontSize: "0.9em",
-            }}
-          >
+    const lines = (text) =>
+      clean(text)
+        .split("\n")
+        .map((line, idx) => (
+          <div key={idx} style={{ whiteSpace: "pre-wrap", marginTop: "3px" }}>
             {line}
-          </pre>
-        );
-      }
+          </div>
+        ));
 
-      // Numbered or bulleted lists
-      if (line.match(/^(\d+\.)|^[-•]/)) {
-        return <li key={idx}>{renderBoldText(line)}</li>;
-      }
+  function formatAgentResponse(agent, instruction, answer) {
+    if (!answer && !instruction) return null;
 
-      // Highlight sections like "Thought:" or "Conclusion:"
-      if (/^(Thought|Step|Conclusion|Final Answer)/i.test(line)) {
-        return (
-          <p
-            key={idx}
-            style={{
-              margin: "4px 0",
-              fontWeight: 600,
-              color: "#2a4365",
-            }}
-          >
-            {renderBoldText(line)}
-          </p>
-        );
-      }
-
-      return (
-        <p key={idx} style={{ margin: "2px 0" }}>
-          {renderBoldText(line)}
-        </p>
-      );
-    });
-  };
-
-    return (
-      <div className="formatted-agent-response" style={{ lineHeight: 1.5 }}>
-        <div>
-          <strong>Agent:</strong> {agent}
-        </div>
-        <div>
-          <strong>Instruction:</strong>
-          <div>{formatLines(ins_clean)}</div>
-        </div>
-        <div>
-          <strong>Answer:</strong>
-          <div>{formatLines(answer_clean)}</div>
-        </div>
+  return (
+    <div className="formatted-agent-response" style={{ lineHeight: 1.6 }}>
+      <div>
+        <strong>Agent:</strong> {agent}
       </div>
-    );
-  }
+      <div style={{ marginTop: "8px" }}>
+        <strong>Instruction:</strong>
+        <div>{lines(instruction)}</div>
+      </div>
+      <br />
+      <div style={{ marginTop: "8px" }}>
+        <strong>Answer:</strong>
+        <div>{lines(answer)}</div>
+      </div>
+      <br /><br />
+    </div>
+  );
+}
 
   return (
     <div className="chat-container">
@@ -395,7 +326,7 @@ export default function Chat({ user }) {
                         </div>
 
                         <div className="assistant-output">
-                          <b>AI:</b> {m.content}
+                          <b>AI:</b> {lines(m.content)}
                         </div>
 
                         <div
@@ -406,7 +337,7 @@ export default function Chat({ user }) {
                             className="view-table-btn"
                             onClick={() => {
                               toggleTable(i);
-                              fetchTableData(m.questionId);
+                              fetchTableData(m.questionId, m.bigqueryJobId);
                             }}
                           >
                             {expandedMessage === i
@@ -450,8 +381,6 @@ export default function Chat({ user }) {
           {isStreaming && (
             <div className="assistant-msg">
               <div className="bubble thinking">
-                <div className="spinner"></div>
-                <b>AI is thinking...</b>
                 <div className="reasoning-stream">
                   {streamingThoughts.map((step, idx) => (
                     <div key={idx} className="reasoning-step">
@@ -459,10 +388,11 @@ export default function Chat({ user }) {
                     </div>
                   ))}
                 </div>
+                <div className="spinner"></div>
+                <b>AI is thinking...</b>
               </div>
             </div>
           )}
-
           <div ref={chatEndRef} />
         </div>
       )}
