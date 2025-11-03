@@ -4,6 +4,7 @@ import logo from '../assets/qoria-logo.png';
 
 export default function Auth({ onLogin }) {
   const [loading, setLoading] = useState(true);
+  const [dialogMessage, setDialogMessage] = useState("");
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -39,12 +40,12 @@ export default function Auth({ onLogin }) {
         const res = await fetch(`/api/user-role?email=${encodeURIComponent(userObject.email)}`);
 
         if (res.status === 403) {
-          alert("You are not authorized to use this system.");
+          setDialogMessage("You are not authorized to use this system.");
           return;
         }
 
         if (!res.ok) {
-          alert("Error verifying your account. Please try again later.");
+          setDialogMessage("Error verifying your account. Please try again later.");
           return;
         }
 
@@ -57,11 +58,12 @@ export default function Auth({ onLogin }) {
           role: data.role,
         });
       } catch (error) {
-        alert("Network error verifying access.");
         console.error(error);
+        setDialogMessage("Network error verifying access.");
+        
       }
     } else {
-      alert("Unauthorized domain");
+      setDialogMessage("Unauthorized domain");
     }
   };
 
@@ -77,14 +79,26 @@ export default function Auth({ onLogin }) {
   return (
     <div className="auth-container">
       <img src={logo} alt="Qoria Logo" className="auth-logo" />
+
       <div className="auth-card">
         <h1 className="auth-title">AI Virtual Assistant</h1>
         <p className="auth-subtitle">
           Sign in with your <b>@qoria.com</b> account to continue
         </p>
         <div id="googleSignInDiv" className="google-btn-container"></div>
-
       </div>
+
+      {dialogMessage && (
+        <div className="dialog-overlay">
+          <div className="dialog-box">
+            <h3>Notice</h3>
+            <p>{dialogMessage}</p>
+            <button className="dialog-btn" onClick={() => setDialogMessage("")}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
